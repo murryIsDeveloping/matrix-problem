@@ -1,6 +1,3 @@
-const BOARD_SIZE = 3
-const NUM_RANGE_HIGH = 9
-const NUM_RANGE_LOW = 1
 const OPERATORS = ['*', '+', '-']
 
 const OPERATORS_MAP = {
@@ -15,12 +12,7 @@ const readline = require('readline').createInterface({
     output: process.stdout
 })
 
-const randomIndex = len => Math.floor(Math.random() * len)
-const randomOperator = () => OPERATORS[randomIndex(OPERATORS.length)]
-const randomNumber = () => randomIndex((NUM_RANGE_HIGH + 1) - NUM_RANGE_LOW) + NUM_RANGE_LOW
-
 const isEven = num => num % 2 === 0
-const isOdd = num => num % 2 !== 0
 
 const reduce = fn => arr => {
     let acc = arr[0]
@@ -36,7 +28,11 @@ const calcRow = reduce((acc, value) => {
     return acc(value)
 })
 
-const generateBoard = (boardSize = BOARD_SIZE) => {
+const generateBoard = (boardSize, min, max) => {
+    const randomIndex = len => Math.floor(Math.random() * len)
+    const randomOperator = () => OPERATORS[randomIndex(OPERATORS.length)]
+    const randomNumber = () => randomIndex((max + 1) - min) + min
+
     const matrix = []
     for(let i = 0; i < boardSize; i++) {
         const row = []
@@ -53,16 +49,16 @@ const generateBoard = (boardSize = BOARD_SIZE) => {
     return matrix
 }
 
-const calcBoard = (board) => {
-    for(let i = 0; i < BOARD_SIZE; i++) {
+const calcBoard = (board, boardSize) => {
+    for(let i = 0; i < boardSize; i++) {
         const row = board[i]
         row.push(isEven(i) ? String(calcRow(row)) : ' ')
     }
 
-    const row = Array(BOARD_SIZE + 1).fill(' ')
-    for(let i = 0; i < BOARD_SIZE; i+=2) {
+    const row = Array(boardSize + 1).fill(' ')
+    for(let i = 0; i < boardSize; i+=2) {
         const col = []
-        for(let j = 0; j < BOARD_SIZE; j++) {
+        for(let j = 0; j < boardSize; j++) {
             col.push(board[j][i])
             board[j][i] = String(board[j][i])
         }
@@ -91,16 +87,49 @@ const generateEmptyBoard = (calculatedBoard) => {
     return matrix
 }
 
+const getBoardSize = () => {
+    return new Promise(async (resolve) => {
+        readline.question(`What's size board?`, value => {
+            const num = Number(value)
+            if(!isFinite(num) || isEven(num) || num < 3){
+                console.log('INVALID BOARD SIZE. PLEASE CHOOSE AN ODD NUMBER GREATER THAN 2')
+                resolve(getBoardSize())
+            } else {
+                resolve(num)
+            }
+        })
+    })
+}
 
-const main = () => {
-    const matrix = generateBoard()
+const getNumRange = () => {
+    return new Promise((resolve) => {
+        readline.question(`What's num range? \n(min,max)  `, value => {
+            const [min, max] = value.split(',')
+            if(!isFinite(min) || !isFinite(max) || Number(min) >= Number(max)){
+                console.log('INVALID NUMBERS, OR MIN MAX COMBINATION')
+                resolve(getNumRange())
+            } else {
+                resolve([Number(min), Number(max)]) 
+            }
+        })
+    })
+}
+
+
+const main = async () => {
+
+    const boardSize = await getBoardSize()
+    const [min, max] = await getNumRange()
+
+    const matrix = generateBoard(boardSize, min, max)
     // check results from this board
-    const calculatedBoard = calcBoard(matrix)
+    const calculatedBoard = calcBoard(matrix, boardSize)
     // modify this board
     const emptyBoard = generateEmptyBoard(calculatedBoard)
 
     // game loop
-    const play = (() => {
+    const play = () => {
+        console.log(emptyBoard)
         readline.question(`What's your input? \n(x,y=value)  `, value => {
             const [coord, guess] = value.split('=')
             const [i, j] = coord.split(',')
@@ -108,7 +137,7 @@ const main = () => {
             const coordY = Number(j)
             const cell = emptyBoard[coordX][coordY]
 
-            if(cell !== ' ' || i >= BOARD_SIZE || j >= BOARD_SIZE){
+            if(cell !== ' ' || i >= boardSize || j >= boardSize){
                 console.log('INVALID COORDINATES PLEASE CHOOSE AN EMPTY CELL! \n', emptyBoard)
                 play()
                 return
@@ -130,7 +159,9 @@ const main = () => {
 
             play()
         })
-    })()
+    }
+
+    play()
 
 }
 
